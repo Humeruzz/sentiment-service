@@ -1,7 +1,7 @@
 [project]
 name = "sentiment-service"
 version = "0.1.0"
-description = "Add your description here"
+description = "Fine-tune and serve a multilingual sentiment analysis model on tweet data"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
