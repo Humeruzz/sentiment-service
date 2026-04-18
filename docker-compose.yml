@@ -1,0 +1,17 @@
+services:
+  train:
+    build: .
+    command: python src/train.py
+    network_mode: bridge
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+
+  predict:
+    build: .
+    command: python src/inference.py "${PREDICT_TEXT:-I love this product!}"
+    network_mode: bridge
+    volumes:
+      - ./models:/app/models
+    environment:
+      - PREDICT_TEXT=${PREDICT_TEXT:-I love this product!}
