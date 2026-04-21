@@ -14,13 +14,46 @@ Fine-tunes [`cardiffnlp/twitter-xlm-roberta-base-sentiment`](https://huggingface
 | Step | Skill | Status |
 |---|---|---|
 | 1 | Docker — containerized training + CLI inference | ✅ Done |
-| 2 | FastAPI — REST API serving predictions | 🔨 In progress |
+| 2 | FastAPI — REST API serving predictions | ✅ Done |
 | 3 | MLflow — experiment tracking + model registry | Planned |
 | 4 | GitHub Actions — CI/CD, auto-test + auto-build | Planned |
 | 5 | GCP Cloud Run — public URL, auto-deployed | Planned |
 | 6 | DVC — fully reproducible ML pipeline | Planned |
 
 Each step builds on the previous one. No rewrites — just additions.
+
+---
+
+## Step 2 — FastAPI
+
+### What was built
+
+- `src/api.py` — FastAPI app, reuses `predict()` from `inference.py`
+- `GET /health` — returns `{"status": "ok", "model_loaded": true}`
+- `POST /predict` — accepts JSON, returns sentiment label + confidence
+- Model loads once at startup via lifespan (not per request)
+- Swagger UI auto-generated at `/docs`
+
+### Quickstart
+
+```bash
+docker compose up train   # train first (model must exist)
+docker compose up api     # start API on port 8000
+```
+
+**Predict:**
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Ich liebe das!", "lang": "de"}'
+```
+
+**Health check:**
+```bash
+curl http://localhost:8000/health
+```
+
+**Interactive docs:** http://localhost:8000/docs
 
 ---
 

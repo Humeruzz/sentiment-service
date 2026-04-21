@@ -15,3 +15,14 @@ services:
       - ./models:/app/models
     environment:
       - PREDICT_TEXT=${PREDICT_TEXT:-I love this product!}
+
+  api:
+    build: .
+    network_mode: bridge
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+    depends_on:
+      train:
+        condition: service_completed_successfully
