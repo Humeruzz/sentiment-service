@@ -3,11 +3,11 @@ FROM python:3.11-slim
 
 # Set working directory inside container
 WORKDIR /app
+ENV PYTHONPATH=/app
 
 # Install dependencies first (layer caching — only rebuilds if requirements change)
 COPY requirements.txt ./
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY src/ ./src/
