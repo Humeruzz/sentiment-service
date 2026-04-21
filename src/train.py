@@ -1,5 +1,7 @@
 import logging
+import os
 
+import mlflow
 import numpy as np
 import torch
 import typer
@@ -12,6 +14,8 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
+
+from src.mlflow_utils import log_model_artifacts, register_model, write_run_sidecar
 
 logging.basicConfig(
     level=logging.INFO,
@@ -83,6 +87,9 @@ def main(
         log.error(f"Failed to load model: {e}")
         raise typer.Exit(1)
 
+    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+    mlflow.set_experiment("sentiment-analysis")
+
     args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=epochs,
@@ -104,11 +111,24 @@ def main(
     )
 
     log.info("Training...")
-    trainer.train()
+    with mlflow.start_run() as run:
+        mlflow.log_params({
+            "model_name": model_name,
+            "train_samples": train_samples,
+            "val_samples": val_samples,
+            "max_length": max_length,
+            "epochs": epochs,
+        })
+        trainer.train()
+        mlflow.log_metrics(trainer.evaluate())
+        log.info(f"Saving model to {output_dir}")
+        trainer.save_model(output_dir)
+        tokenizer.save_pretrained(output_dir)
+        log_model_artifacts(output_dir)
+        version = register_model(run.info.run_id)
+        write_run_sidecar(run.info.run_id, version, f"{output_dir}/mlflow_meta.json")
+        log.info(f"MLflow run: {run.info.run_id} | model version: {version}")
 
-    log.info(f"Saving model to {output_dir}")
-    trainer.save_model(output_dir)
-    tokenizer.save_pretrained(output_dir)
     log.info("Done.")
 
 

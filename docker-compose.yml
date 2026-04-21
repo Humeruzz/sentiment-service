@@ -1,11 +1,42 @@
 services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.22.1
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./mlruns:/mlruns
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////mlruns/mlflow.db
+      --default-artifact-root /mlruns/artifacts
+      --host 0.0.0.0
+      --port 5000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sentiment-net
+
   train:
     build: .
     command: python src/train.py
     network_mode: bridge
+    extra_hosts:
+      - "mlflow-host:host-gateway"
     volumes:
       - ./models:/app/models
       - ./data:/app/data
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow-host:5001
+      - HF_DATASETS_CACHE=/app/data/cache
+      - HF_HUB_CACHE=/app/data/hub
+      - HF_DATASETS_OFFLINE=1
+      - HF_HUB_OFFLINE=1
+    depends_on:
+      mlflow:
+        condition: service_healthy
 
   predict:
     build: .
@@ -18,7 +49,6 @@ services:
 
   api:
     build: .
-    network_mode: bridge
     ports:
       - "8000:8000"
     volumes:
@@ -26,3 +56,9 @@ services:
     depends_on:
       train:
         condition: service_completed_successfully
+    networks:
+      - sentiment-net
+
+networks:
+  sentiment-net:
+    driver: bridge
