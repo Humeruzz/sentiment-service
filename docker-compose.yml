@@ -8,7 +8,8 @@ services:
     command: >
       mlflow server
       --backend-store-uri sqlite:////mlruns/mlflow.db
-      --default-artifact-root /mlruns/artifacts
+      --artifacts-destination /mlruns/artifacts
+      --serve-artifacts
       --host 0.0.0.0
       --port 5000
     healthcheck:
@@ -22,20 +23,18 @@ services:
   train:
     build: .
     command: python src/train.py
-    network_mode: "service:mlflow"
     volumes:
       - ./models:/app/models
       - ./data:/app/data
     environment:
-      - MLFLOW_TRACKING_URI=http://localhost:5000
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
       - HF_DATASETS_CACHE=/app/data/cache
       - HF_HUB_CACHE=/app/data/hub
-      - HF_DATASETS_OFFLINE=1
-      - HF_HUB_OFFLINE=1
-      - PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
     depends_on:
       mlflow:
         condition: service_healthy
+    networks:
+      - sentiment-net
 
   predict:
     build: .
