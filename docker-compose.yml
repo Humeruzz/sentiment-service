@@ -1,16 +1,77 @@
 services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.11.1
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./mlruns:/mlruns
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////mlruns/mlflow.db
+      --artifacts-destination /mlruns/artifacts
+      --serve-artifacts
+      --host 0.0.0.0
+      --port 5000
+      --allowed-hosts '*'
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sentiment-net
+
   train:
     build: .
     command: python src/train.py
-    network_mode: bridge
     volumes:
       - ./models:/app/models
       - ./data:/app/data
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - HF_DATASETS_CACHE=/app/data/cache
+      - HF_HUB_CACHE=/app/data/hub
+      - HF_HUB_VERBOSITY=warning
+      - HSA_OVERRIDE_GFX_VERSION=11.0.1
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    group_add:
+      - "44"
+      - "110"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    networks:
+      - sentiment-net
+
+  sweep:
+    build: .
+    command: python src/sweep.py
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - HF_DATASETS_CACHE=/app/data/cache
+      - HF_HUB_CACHE=/app/data/hub
+      - HF_HUB_VERBOSITY=warning
+      - HSA_OVERRIDE_GFX_VERSION=11.0.1
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    group_add:
+      - "44"
+      - "110"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    networks:
+      - sentiment-net
 
   predict:
     build: .
     command: python src/inference.py "${PREDICT_TEXT:-I love this product!}"
-    network_mode: bridge
     volumes:
       - ./models:/app/models
     environment:
@@ -18,11 +79,13 @@ services:
 
   api:
     build: .
-    network_mode: bridge
     ports:
       - "8000:8000"
     volumes:
       - ./models:/app/models
-    depends_on:
-      train:
-        condition: service_completed_successfully
+    networks:
+      - sentiment-net
+
+networks:
+  sentiment-net:
+    driver: bridge

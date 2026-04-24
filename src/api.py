@@ -1,11 +1,14 @@
+import json
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from src.inference import get_classifier, predict
+from src.inference import get_classifier, is_model_loaded, predict
 
 MODEL_DIR = "/app/models/sentiment"
+MLFLOW_META_PATH = f"{MODEL_DIR}/mlflow_meta.json"
 
 
 class PredictRequest(BaseModel):
@@ -31,7 +34,7 @@ app = FastAPI(title="Sentiment Analysis API", lifespan=lifespan)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_loaded": True}
+    return {"status": "ok", "model_loaded": is_model_loaded()}
 
 
 @app.post("/predict", response_model=PredictResponse)
@@ -45,3 +48,11 @@ def predict_endpoint(request: PredictRequest):
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
     return PredictResponse(**result, lang=request.lang)
+
+
+@app.get("/metadata")
+def metadata():
+    meta_file = Path(MLFLOW_META_PATH)
+    if not meta_file.exists():
+        return {"run_id": None, "model_version": None, "registered_at": None}
+    return json.loads(meta_file.read_text())
