@@ -19,8 +19,7 @@ Fine-tunes [`cardiffnlp/twitter-xlm-roberta-base-sentiment`](https://huggingface
 | 2 | FastAPI — REST API serving predictions | ✅ Done |
 | 3 | MLflow — experiment tracking + model registry | ✅ Done |
 | 4 | GitHub Actions — CI/CD, auto-test + auto-build | ✅ Done |
-| 5 | GCP Cloud Run — public URL, auto-deployed | Planned |
-| 6 | DVC — fully reproducible ML pipeline | Planned |
+| 5 | DVC — fully reproducible ML pipeline | Planned |
 
 Each step builds on the previous one. No rewrites — just additions.
 
