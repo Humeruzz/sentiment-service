@@ -9,8 +9,10 @@ ENV PYTHONPATH=/app
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first (layer caching — only rebuilds if requirements change)
+# TORCH_INDEX_URL can be overridden at build time: --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/rocm7.2
 COPY requirements.txt ./
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/rocm7.2 && \
+RUN pip install --no-cache-dir torch torchvision --index-url ${TORCH_INDEX_URL} && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
