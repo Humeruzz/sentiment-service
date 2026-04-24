@@ -27,10 +27,32 @@ services:
     volumes:
       - ./models:/app/models
       - ./data:/app/data
-      - ./mlruns:/mlruns
     environment:
-      - MLFLOW_TRACKING_URI=sqlite:////mlruns/mlflow.db
-      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlruns/artifacts
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - HF_DATASETS_CACHE=/app/data/cache
+      - HF_HUB_CACHE=/app/data/hub
+      - HF_HUB_VERBOSITY=warning
+      - HSA_OVERRIDE_GFX_VERSION=11.0.1
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    group_add:
+      - "44"
+      - "110"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    networks:
+      - sentiment-net
+
+  sweep:
+    build: .
+    command: python src/sweep.py
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
       - HF_DATASETS_CACHE=/app/data/cache
       - HF_HUB_CACHE=/app/data/hub
       - HF_HUB_VERBOSITY=warning

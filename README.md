@@ -39,6 +39,7 @@ Each step builds on the previous one. No rewrites — just additions.
 ```bash
 docker compose up mlflow   # start MLflow server (http://localhost:5001)
 docker compose up train    # train + track experiment + register model
+docker compose up sweep    # run 3 configs (baseline / conservative / aggressive), compare in MLflow UI
 docker compose up api      # serve API (model must exist)
 ```
 
