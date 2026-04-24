@@ -22,7 +22,7 @@ def test_metadata_no_file(client, tmp_path, monkeypatch):
     monkeypatch.setattr("src.api.MLFLOW_META_PATH", str(tmp_path / "mlflow_meta.json"))
     response = client.get("/metadata")
     assert response.status_code == 200
-    assert response.json()["mlflow_run_id"] is None
+    assert response.json()["run_id"] is None
 
 
 def test_metadata_with_file(client, tmp_path, monkeypatch):

@@ -23,6 +23,7 @@ logging.basicConfig(
     handlers=[RichHandler(show_path=False)],
 )
 log = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 DEFAULT_MODEL = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
 DEFAULT_OUTPUT_DIR = "/app/models/sentiment"
@@ -98,6 +99,8 @@ def main(
         eval_strategy="epoch",
         save_strategy="epoch",
         load_best_model_at_end=True,
+        metric_for_best_model="accuracy",
+        greater_is_better=True,
         logging_steps=50,
         fp16=use_gpu,
     )
@@ -120,12 +123,13 @@ def main(
             "epochs": epochs,
         })
         trainer.train()
-        mlflow.log_metrics(trainer.evaluate())
+        eval_results = trainer.evaluate()
+        mlflow.log_metrics({k: v for k, v in eval_results.items() if k in ("eval_loss", "eval_accuracy")})
         log.info(f"Saving model to {output_dir}")
         trainer.save_model(output_dir)
         tokenizer.save_pretrained(output_dir)
-        log_model_artifacts(output_dir)
-        version = register_model(run.info.run_id)
+        model_uri = log_model_artifacts(trainer.model, tokenizer)
+        version = register_model(model_uri)
         write_run_sidecar(run.info.run_id, version, f"{output_dir}/mlflow_meta.json")
         log.info(f"MLflow run: {run.info.run_id} | model version: {version}")
 

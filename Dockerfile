@@ -7,7 +7,8 @@ ENV PYTHONPATH=/app
 
 # Install dependencies first (layer caching — only rebuilds if requirements change)
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/rocm7.2 && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY src/ ./src/

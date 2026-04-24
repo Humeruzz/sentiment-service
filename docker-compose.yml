@@ -1,6 +1,6 @@
 services:
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.22.1
+    image: ghcr.io/mlflow/mlflow:v3.11.1
     ports:
       - "5001:5000"
     volumes:
@@ -12,6 +12,7 @@ services:
       --serve-artifacts
       --host 0.0.0.0
       --port 5000
+      --allowed-hosts '*'
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 10s
@@ -26,10 +27,20 @@ services:
     volumes:
       - ./models:/app/models
       - ./data:/app/data
+      - ./mlruns:/mlruns
     environment:
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MLFLOW_TRACKING_URI=sqlite:////mlruns/mlflow.db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlruns/artifacts
       - HF_DATASETS_CACHE=/app/data/cache
       - HF_HUB_CACHE=/app/data/hub
+      - HF_HUB_VERBOSITY=warning
+      - HSA_OVERRIDE_GFX_VERSION=11.0.1
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    group_add:
+      - "44"
+      - "110"
     depends_on:
       mlflow:
         condition: service_healthy
@@ -39,7 +50,6 @@ services:
   predict:
     build: .
     command: python src/inference.py "${PREDICT_TEXT:-I love this product!}"
-    network_mode: bridge
     volumes:
       - ./models:/app/models
     environment:
@@ -51,9 +61,6 @@ services:
       - "8000:8000"
     volumes:
       - ./models:/app/models
-    depends_on:
-      train:
-        condition: service_completed_successfully
     networks:
       - sentiment-net
 

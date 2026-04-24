@@ -15,12 +15,39 @@ Fine-tunes [`cardiffnlp/twitter-xlm-roberta-base-sentiment`](https://huggingface
 |---|---|---|
 | 1 | Docker — containerized training + CLI inference | ✅ Done |
 | 2 | FastAPI — REST API serving predictions | ✅ Done |
-| 3 | MLflow — experiment tracking + model registry | Planned |
+| 3 | MLflow — experiment tracking + model registry | ✅ Done |
 | 4 | GitHub Actions — CI/CD, auto-test + auto-build | Planned |
 | 5 | GCP Cloud Run — public URL, auto-deployed | Planned |
 | 6 | DVC — fully reproducible ML pipeline | Planned |
 
 Each step builds on the previous one. No rewrites — just additions.
+
+---
+
+## Step 3 — MLflow
+
+### What was built
+
+- `src/mlflow_utils.py` — `log_model_artifacts`, `register_model`, `write_run_sidecar`
+- Experiment tracking: params, `eval_loss`, `eval_accuracy` logged per run
+- Model registry: trained model registered as `sentiment-classifier` with `staging` alias
+- `GET /metadata` endpoint — returns `run_id`, `model_version`, `registered_at` from sidecar file
+- MLflow server runs as a separate Docker service, artifacts written directly to `./mlruns/`
+
+### Quickstart
+
+```bash
+docker compose up mlflow   # start MLflow server (http://localhost:5001)
+docker compose up train    # train + track experiment + register model
+docker compose up api      # serve API (model must exist)
+```
+
+**MLflow UI:** http://localhost:5001
+
+**Metadata endpoint:**
+```bash
+curl http://localhost:8000/metadata
+```
 
 ---
 
@@ -98,10 +125,15 @@ PREDICT_TEXT="Das ist fantastisch!" docker compose run predict
 ```
 sentiment-service/
 ├── src/
-│   ├── train.py        # fine-tuning pipeline
-│   └── inference.py    # CLI inference
-├── data/               # dataset cache (git-ignored)
-├── models/             # saved model output (git-ignored)
+│   ├── train.py          # fine-tuning pipeline
+│   ├── inference.py      # CLI + library inference
+│   ├── api.py            # FastAPI REST service
+│   └── mlflow_utils.py   # MLflow logging helpers
+├── tests/
+├── data/                 # dataset cache (git-ignored)
+├── models/               # saved model output (git-ignored)
+├── mlruns/               # MLflow runs + artifacts (git-ignored)
+├── interactive.ipynb
 ├── Dockerfile
 ├── docker-compose.yml
 └── requirements.txt
@@ -111,10 +143,12 @@ sentiment-service/
 
 ## Local development
 
-Requires Python 3.11+ and [uv](https://github.com/astral-sh/uv).
+Requires Python 3.11+. Installs CPU-only PyTorch — fine for running the API and tests locally.
 
 ```bash
-uv sync
+pip install -r requirements.txt
 python src/train.py
 python src/inference.py "Jag älskar det här!"
 ```
+
+> **GPU note:** The Dockerfile is hardcoded for AMD GPU training via ROCm 7.2 (`https://download.pytorch.org/whl/rocm7.2`). If you have an NVIDIA GPU or want CPU-only Docker training, change the `pip install torch torchvision` line in the Dockerfile to use the appropriate wheel index.

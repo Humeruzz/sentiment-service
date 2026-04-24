@@ -16,19 +16,17 @@ def test_write_run_sidecar(tmp_path):
 
 
 def test_log_model_artifacts(tmp_path):
-    mlflow.set_tracking_uri(f"file://{tmp_path}/mlruns")
-    mlflow.set_experiment("test")
-
-    model_dir = tmp_path / "model"
-    model_dir.mkdir()
-    (model_dir / "config.json").write_text('{"model_type": "roberta"}')
+    from unittest.mock import MagicMock, patch
 
     from src.mlflow_utils import log_model_artifacts
 
-    with mlflow.start_run():
-        log_model_artifacts(str(model_dir))
-        run_id = mlflow.active_run().info.run_id
+    mock_logged = MagicMock()
+    mock_logged.model_uri = "models:/m-test123"
+    with patch("mlflow.transformers.log_model", return_value=mock_logged) as mock_log:
+        uri = log_model_artifacts(MagicMock(), MagicMock())
 
-    client = mlflow.tracking.MlflowClient()
-    artifacts = client.list_artifacts(run_id, "model")
-    assert any(a.path == "model/config.json" for a in artifacts)
+    mock_log.assert_called_once()
+    _, kwargs = mock_log.call_args
+    assert kwargs["name"] == "model"
+    assert kwargs["task"] == "text-classification"
+    assert uri == "models:/m-test123"

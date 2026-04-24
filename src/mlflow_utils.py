@@ -2,22 +2,28 @@ import json
 from datetime import datetime, timezone
 
 import mlflow
+import mlflow.transformers
 from mlflow.tracking import MlflowClient
 
 REGISTERED_MODEL_NAME = "sentiment-classifier"
 
 
-def log_model_artifacts(output_dir: str) -> None:
-    mlflow.log_artifacts(output_dir, artifact_path="model")
+def log_model_artifacts(model, tokenizer) -> str:
+    logged = mlflow.transformers.log_model(
+        transformers_model={"model": model, "tokenizer": tokenizer},
+        name="model",
+        task="text-classification",
+        pip_requirements=["transformers", "torch", "sentencepiece"],
+    )
+    return logged.model_uri
 
 
-def register_model(run_id: str, model_name: str = REGISTERED_MODEL_NAME) -> str:
-    model_uri = f"runs:/{run_id}/model"
+def register_model(model_uri: str, model_name: str = REGISTERED_MODEL_NAME) -> str:
     version = mlflow.register_model(model_uri, model_name)
-    MlflowClient().transition_model_version_stage(
+    MlflowClient().set_registered_model_alias(
         name=model_name,
+        alias="staging",
         version=version.version,
-        stage="Staging",
     )
     return str(version.version)
 

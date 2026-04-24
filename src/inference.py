@@ -80,5 +80,9 @@ def main(
     console.print(table)
 
 
+def is_model_loaded() -> bool:
+    return _classifier is not None
+
+
 if __name__ == "__main__":
     app()
