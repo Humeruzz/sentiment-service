@@ -1,5 +1,7 @@
 # Multilingual Sentiment Analysis Service
 
+![CI](https://github.com/Humeruzz/sentiment-service/actions/workflows/ci.yml/badge.svg)
+
 A learning project working through the core ML engineering stack — one tool at a time, all built on the same service.
 
 Fine-tunes [`cardiffnlp/twitter-xlm-roberta-base-sentiment`](https://huggingface.co/cardiffnlp/twitter-xlm-roberta-base-sentiment) on multilingual tweet data and serves predictions via CLI and REST API.
@@ -16,11 +18,33 @@ Fine-tunes [`cardiffnlp/twitter-xlm-roberta-base-sentiment`](https://huggingface
 | 1 | Docker — containerized training + CLI inference | ✅ Done |
 | 2 | FastAPI — REST API serving predictions | ✅ Done |
 | 3 | MLflow — experiment tracking + model registry | ✅ Done |
-| 4 | GitHub Actions — CI/CD, auto-test + auto-build | Planned |
+| 4 | GitHub Actions — CI/CD, auto-test + auto-build | ✅ Done |
 | 5 | GCP Cloud Run — public URL, auto-deployed | Planned |
 | 6 | DVC — fully reproducible ML pipeline | Planned |
 
 Each step builds on the previous one. No rewrites — just additions.
+
+---
+
+## Step 4 — GitHub Actions
+
+### What was built
+
+- `.github/workflows/ci.yml` — runs `pytest` on every push and every PR to `main`; blocks merges on failure
+- `.github/workflows/docker.yml` — builds and pushes Docker image to `ghcr.io` on every merge to `main`
+- `requirements-dev.txt` — separates test dependencies (`pytest`, `httpx`) from production requirements
+- `Dockerfile` gains `ARG TORCH_INDEX_URL` so CI builds a fast CPU image while local/production keeps ROCm
+- Docker image tagged with both `latest` and the exact git SHA for full traceability
+
+### Published image
+
+```bash
+docker pull ghcr.io/humeruzz/sentiment-service:latest
+```
+
+### CI badge
+
+The badge at the top of this README reflects the current test status of `main`.
 
 ---
 
@@ -125,19 +149,25 @@ PREDICT_TEXT="Das ist fantastisch!" docker compose run predict
 
 ```
 sentiment-service/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml            # run tests on every push/PR
+│       └── docker.yml        # build + push image on merge to main
 ├── src/
-│   ├── train.py          # fine-tuning pipeline
-│   ├── inference.py      # CLI + library inference
-│   ├── api.py            # FastAPI REST service
-│   └── mlflow_utils.py   # MLflow logging helpers
+│   ├── train.py              # fine-tuning pipeline
+│   ├── inference.py          # CLI + library inference
+│   ├── api.py                # FastAPI REST service
+│   ├── mlflow_utils.py       # MLflow logging helpers
+│   └── sweep.py              # hyperparameter sweep runner
 ├── tests/
-├── data/                 # dataset cache (git-ignored)
-├── models/               # saved model output (git-ignored)
-├── mlruns/               # MLflow runs + artifacts (git-ignored)
+├── data/                     # dataset cache (git-ignored)
+├── models/                   # saved model output (git-ignored)
+├── mlruns/                   # MLflow runs + artifacts (git-ignored)
 ├── interactive.ipynb
 ├── Dockerfile
 ├── docker-compose.yml
-└── requirements.txt
+├── requirements.txt
+└── requirements-dev.txt      # test dependencies (pytest, httpx)
 ```
 
 ---
