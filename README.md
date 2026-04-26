@@ -19,92 +19,9 @@ Fine-tunes [`cardiffnlp/twitter-xlm-roberta-base-sentiment`](https://huggingface
 | 2 | FastAPI — REST API serving predictions | ✅ Done |
 | 3 | MLflow — experiment tracking + model registry | ✅ Done |
 | 4 | GitHub Actions — CI/CD, auto-test + auto-build | ✅ Done |
-| 5 | DVC — fully reproducible ML pipeline | Planned |
+| 5 | DVC — fully reproducible ML pipeline | ✅ Done |
 
 Each step builds on the previous one. No rewrites — just additions.
-
----
-
-## Step 4 — GitHub Actions
-
-### What was built
-
-- `.github/workflows/ci.yml` — runs `pytest` on every push and every PR to `main`; blocks merges on failure
-- `.github/workflows/docker.yml` — builds and pushes Docker image to `ghcr.io` on every merge to `main`
-- `requirements-dev.txt` — separates test dependencies (`pytest`, `httpx`) from production requirements
-- `Dockerfile` gains `ARG TORCH_INDEX_URL` so CI builds a fast CPU image while local/production keeps ROCm
-- Docker image tagged with both `latest` and the exact git SHA for full traceability
-
-### Published image
-
-```bash
-docker pull ghcr.io/humeruzz/sentiment-service:latest
-```
-
-### CI badge
-
-The badge at the top of this README reflects the current test status of `main`.
-
----
-
-## Step 3 — MLflow
-
-### What was built
-
-- `src/mlflow_utils.py` — `log_model_artifacts`, `register_model`, `write_run_sidecar`
-- Experiment tracking: params, `eval_loss`, `eval_accuracy` logged per run
-- Model registry: trained model registered as `sentiment-classifier` with `staging` alias
-- `GET /metadata` endpoint — returns `run_id`, `model_version`, `registered_at` from sidecar file
-- MLflow server runs as a separate Docker service, artifacts written directly to `./mlruns/`
-
-### Quickstart
-
-```bash
-docker compose up mlflow   # start MLflow server (http://localhost:5001)
-docker compose up train    # train + track experiment + register model
-docker compose up sweep    # run 3 configs (baseline / conservative / aggressive), compare in MLflow UI
-docker compose up api      # serve API (model must exist)
-```
-
-**MLflow UI:** http://localhost:5001
-
-**Metadata endpoint:**
-```bash
-curl http://localhost:8000/metadata
-```
-
----
-
-## Step 2 — FastAPI
-
-### What was built
-
-- `src/api.py` — FastAPI app, reuses `predict()` from `inference.py`
-- `GET /health` — returns `{"status": "ok", "model_loaded": true}`
-- `POST /predict` — accepts JSON, returns sentiment label + confidence
-- Model loads once at startup via lifespan (not per request)
-- Swagger UI auto-generated at `/docs`
-
-### Quickstart
-
-```bash
-docker compose up train   # train first (model must exist)
-docker compose up api     # start API on port 8000
-```
-
-**Predict:**
-```bash
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Ich liebe das!", "lang": "de"}'
-```
-
-**Health check:**
-```bash
-curl http://localhost:8000/health
-```
-
-**Interactive docs:** http://localhost:8000/docs
 
 ---
 
@@ -167,6 +84,148 @@ sentiment-service/
 ├── docker-compose.yml
 ├── requirements.txt
 └── requirements-dev.txt      # test dependencies (pytest, httpx)
+```
+
+---
+
+## Step 2 — FastAPI
+
+### What was built
+
+- `src/api.py` — FastAPI app, reuses `predict()` from `inference.py`
+- `GET /health` — returns `{"status": "ok", "model_loaded": true}`
+- `POST /predict` — accepts JSON, returns sentiment label + confidence
+- Model loads once at startup via lifespan (not per request)
+- Swagger UI auto-generated at `/docs`
+
+### Quickstart
+
+```bash
+docker compose up train   # train first (model must exist)
+docker compose up api     # start API on port 8000
+```
+
+**Predict:**
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Ich liebe das!", "lang": "de"}'
+```
+
+**Health check:**
+```bash
+curl http://localhost:8000/health
+```
+
+**Interactive docs:** http://localhost:8000/docs
+
+---
+
+## Step 3 — MLflow
+
+### What was built
+
+- `src/mlflow_utils.py` — `log_model_artifacts`, `register_model`, `write_run_sidecar`
+- Experiment tracking: params, `eval_loss`, `eval_accuracy` logged per run
+- Model registry: trained model registered as `sentiment-classifier` with `staging` alias
+- `GET /metadata` endpoint — returns `run_id`, `model_version`, `registered_at` from sidecar file
+- MLflow server runs as a separate Docker service, artifacts written directly to `./mlruns/`
+
+### Quickstart
+
+```bash
+docker compose up mlflow   # start MLflow server (http://localhost:5001)
+docker compose up train    # train + track experiment + register model
+docker compose up sweep    # run 3 configs (baseline / conservative / aggressive), compare in MLflow UI
+docker compose up api      # serve API (model must exist)
+```
+
+**MLflow UI:** http://localhost:5001
+
+**Metadata endpoint:**
+```bash
+curl http://localhost:8000/metadata
+```
+
+---
+
+## Step 4 — GitHub Actions
+
+### What was built
+
+- `.github/workflows/ci.yml` — runs `pytest` on every push and every PR to `main`; blocks merges on failure
+- `.github/workflows/docker.yml` — builds and pushes Docker image to `ghcr.io` on every merge to `main`
+- `requirements-dev.txt` — separates test dependencies (`pytest`, `httpx`) from production requirements
+- `Dockerfile` gains `ARG TORCH_INDEX_URL` so CI builds a fast CPU image while local/production keeps ROCm
+- Docker image tagged with both `latest` and the exact git SHA for full traceability
+
+### Published image
+
+```bash
+docker pull ghcr.io/humeruzz/sentiment-service:latest
+```
+
+### CI badge
+
+The badge at the top of this README reflects the current test status of `main`.
+
+---
+
+## Step 5 — DVC
+
+### What was built
+
+- `params.yaml` — single source of truth for all training hyperparameters
+- `dvc.yaml` — pipeline definition: deps, params, outs, and metrics for the `train` stage
+- `dvc.lock` — committed pipeline lock; proves exact input/output hashes after each run
+- `metrics.json` — eval loss + accuracy written after training; committed to git for history
+- `.dvcignore` — excludes HuggingFace caches from DVC tracking
+- `src/train.py` updated to read defaults from `params.yaml`; CLI overrides still work
+
+**DVC vs MLflow — complementary roles:**
+
+| Concern | Tool |
+|---|---|
+| Per-run experiment tracking | MLflow |
+| Comparing hyperparameter sweeps | MLflow UI |
+| Pipeline reproducibility across commits | DVC |
+| Pulling a model artifact without re-training | DVC remote |
+| What changed between two commits? | `dvc params diff` / `dvc metrics diff` |
+
+### Quickstart
+
+```bash
+# Initialize DVC (first time only)
+dvc init
+dvc remote add -d local ./dvc-remote
+
+# Reproduce the pipeline (skips if nothing changed)
+dvc repro
+
+# Check if pipeline is stale
+dvc status
+
+# Visualize the pipeline DAG
+dvc dag
+
+# Show current metrics
+dvc metrics show
+
+# Compare metrics vs previous commit
+dvc metrics diff HEAD~1
+
+# Show all current params (vs committed state)
+dvc params diff
+
+# Show what params changed vs previous commit
+dvc params diff HEAD~1
+
+# Push model artifacts to remote (so others can pull without re-training)
+dvc push
+
+# Restore model artifacts without re-training
+rm -rf models/sentiment
+dvc pull
 ```
 
 ---

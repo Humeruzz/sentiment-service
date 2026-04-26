@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir torch torchvision --index-url ${TORCH_INDEX_URL} 
 
 # Copy source code
 COPY src/ ./src/
+COPY params.yaml ./
 
 # Create directories for data and models, then drop root privileges
 RUN mkdir -p /app/data /app/models \
