@@ -27,4 +27,4 @@ jobs:
         run: pytest tests/ -v
 
       - name: Check DVC pipeline integrity
-        run: dvc status --no-run-cache
+        run: dvc status
