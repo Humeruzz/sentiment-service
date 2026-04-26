@@ -1,0 +1,25 @@
+stages:
+  train:
+    cmd: python src/train.py
+    deps:
+      - src/train.py
+      - src/mlflow_utils.py
+    params:
+      - params.yaml:
+          - train.model_name
+          - train.output_dir
+          - train.epochs
+          - train.train_batch_size
+          - train.eval_batch_size
+          - train.train_samples
+          - train.val_samples
+          - train.max_length
+          - train.learning_rate
+          - train.warmup_ratio
+          - train.weight_decay
+    outs:
+      - models/sentiment:
+          cache: true
+    metrics:
+      - metrics.json:
+          cache: false

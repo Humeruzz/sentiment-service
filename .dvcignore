@@ -1,0 +1,3 @@
+# HuggingFace dataset and model hub caches
+data/cache/
+data/hub/

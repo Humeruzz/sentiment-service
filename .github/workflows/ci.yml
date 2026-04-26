@@ -25,3 +25,6 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v
+
+      - name: Check DVC pipeline integrity
+        run: dvc status

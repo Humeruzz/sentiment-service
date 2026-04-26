@@ -1,0 +1,12 @@
+train:
+  model_name: cardiffnlp/twitter-xlm-roberta-base-sentiment
+  output_dir: ./models/sentiment
+  epochs: 2
+  train_batch_size: 16
+  eval_batch_size: 32
+  train_samples: 2000
+  val_samples: 400
+  max_length: 128
+  learning_rate: 0.00005
+  warmup_ratio: 0.0
+  weight_decay: 0.0

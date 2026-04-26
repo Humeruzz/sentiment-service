@@ -10,3 +10,4 @@ models/
 data/
 .claude
 mlruns/
+dvc-remote/

@@ -1,10 +1,14 @@
+import json
 import logging
 import os
+from pathlib import Path
+from typing import Optional
 
 import mlflow
 import numpy as np
 import torch
 import typer
+import yaml
 from datasets import load_dataset
 from rich.logging import RichHandler
 from sklearn.metrics import accuracy_score
@@ -28,6 +32,16 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 DEFAULT_MODEL = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
 DEFAULT_OUTPUT_DIR = "/app/models/sentiment"
 NUM_LABELS = 3  # negative, neutral, positive
+
+_PARAMS_PATH = Path(__file__).resolve().parent.parent / "params.yaml"
+
+
+def _load_params() -> dict:
+    if not _PARAMS_PATH.exists():
+        return {}
+    with open(_PARAMS_PATH) as f:
+        data = yaml.safe_load(f) or {}
+    return data.get("train", {})
 
 
 def compute_metrics(eval_pred):
@@ -134,6 +148,16 @@ def train(
         trainer.train()
         eval_results = trainer.evaluate()
         mlflow.log_metrics({k: v for k, v in eval_results.items() if k in ("eval_loss", "eval_accuracy")})
+        repo_root = Path(__file__).resolve().parent.parent
+        with open(repo_root / "metrics.json", "w") as f:
+            json.dump(
+                {
+                    "eval_loss": eval_results.get("eval_loss"),
+                    "eval_accuracy": eval_results.get("eval_accuracy"),
+                },
+                f,
+                indent=2,
+            )
         log.info(f"Saving model to {output_dir}")
         trainer.save_model(output_dir)
         tokenizer.save_pretrained(output_dir)
@@ -147,31 +171,32 @@ def train(
 
 @app.command()
 def main(
-    model_name: str = typer.Option(DEFAULT_MODEL, "--model-name", help="Pre-trained model to fine-tune"),
-    output_dir: str = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Where to save the trained model"),
-    epochs: int = typer.Option(2, "--epochs", help="Number of training epochs"),
-    train_batch_size: int = typer.Option(16, "--train-batch-size"),
-    eval_batch_size: int = typer.Option(32, "--eval-batch-size"),
-    train_samples: int = typer.Option(2000, "--train-samples", help="Training subset size (0 = full dataset)"),
-    val_samples: int = typer.Option(400, "--val-samples", help="Validation subset size (0 = full dataset)"),
-    max_length: int = typer.Option(128, "--max-length", help="Max tokenizer sequence length"),
-    learning_rate: float = typer.Option(5e-5, "--learning-rate", help="AdamW learning rate"),
-    warmup_ratio: float = typer.Option(0.0, "--warmup-ratio", help="Fraction of steps used for LR warmup"),
-    weight_decay: float = typer.Option(0.0, "--weight-decay", help="L2 regularization coefficient"),
-    run_name: str = typer.Option(None, "--run-name", help="MLflow run name"),
+    model_name: Optional[str] = typer.Option(None, "--model-name", help="Pre-trained model to fine-tune"),
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", help="Where to save the trained model"),
+    epochs: Optional[int] = typer.Option(None, "--epochs", help="Number of training epochs"),
+    train_batch_size: Optional[int] = typer.Option(None, "--train-batch-size"),
+    eval_batch_size: Optional[int] = typer.Option(None, "--eval-batch-size"),
+    train_samples: Optional[int] = typer.Option(None, "--train-samples", help="Training subset size (0 = full dataset)"),
+    val_samples: Optional[int] = typer.Option(None, "--val-samples", help="Validation subset size (0 = full dataset)"),
+    max_length: Optional[int] = typer.Option(None, "--max-length", help="Max tokenizer sequence length"),
+    learning_rate: Optional[float] = typer.Option(None, "--learning-rate", help="AdamW learning rate"),
+    warmup_ratio: Optional[float] = typer.Option(None, "--warmup-ratio", help="Fraction of steps used for LR warmup"),
+    weight_decay: Optional[float] = typer.Option(None, "--weight-decay", help="L2 regularization coefficient"),
+    run_name: Optional[str] = typer.Option(None, "--run-name", help="MLflow run name"),
 ):
+    p = _load_params()
     train(
-        model_name=model_name,
-        output_dir=output_dir,
-        epochs=epochs,
-        train_batch_size=train_batch_size,
-        eval_batch_size=eval_batch_size,
-        train_samples=train_samples,
-        val_samples=val_samples,
-        max_length=max_length,
-        learning_rate=learning_rate,
-        warmup_ratio=warmup_ratio,
-        weight_decay=weight_decay,
+        model_name=model_name if model_name is not None else p.get("model_name", DEFAULT_MODEL),
+        output_dir=output_dir if output_dir is not None else p.get("output_dir", DEFAULT_OUTPUT_DIR),
+        epochs=epochs if epochs is not None else p.get("epochs", 2),
+        train_batch_size=train_batch_size if train_batch_size is not None else p.get("train_batch_size", 16),
+        eval_batch_size=eval_batch_size if eval_batch_size is not None else p.get("eval_batch_size", 32),
+        train_samples=train_samples if train_samples is not None else p.get("train_samples", 2000),
+        val_samples=val_samples if val_samples is not None else p.get("val_samples", 400),
+        max_length=max_length if max_length is not None else p.get("max_length", 128),
+        learning_rate=learning_rate if learning_rate is not None else p.get("learning_rate", 5e-5),
+        warmup_ratio=warmup_ratio if warmup_ratio is not None else p.get("warmup_ratio", 0.0),
+        weight_decay=weight_decay if weight_decay is not None else p.get("weight_decay", 0.0),
         run_name=run_name,
     )
 
